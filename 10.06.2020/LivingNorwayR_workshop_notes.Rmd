@@ -2,7 +2,7 @@
 title: "Living Norway"
 author: "Matt"
 date: "11 6 2020"
-output: html_document
+output: rmarkdown::github_document
 ---
 
 ```{r setup, include=FALSE}
