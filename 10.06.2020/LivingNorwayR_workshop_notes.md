@@ -3,19 +3,6 @@ Living Norway
 Matt
 11 6 2020
 
-<style>
-  .col2 {
-    columns: 2 200px;         /* number of columns and width in pixels*/
-    -webkit-columns: 2 200px; /* chrome, safari */
-    -moz-columns: 2 200px;    /* firefox */
-  }
-  .col3 {
-    columns: 3 100px;
-    -webkit-columns: 3 100px;
-    -moz-columns: 3 100px;
-  }
-</style>
-
 ## LivingNorwayR Workshop 10/06/2020
 
 ### Workshop participants
@@ -45,8 +32,6 @@ Bob O’Hara - NTNU
 Matt Grainger - NINA
 
 ## 
-
-<div class="col1">
 
 -----
 
@@ -167,8 +152,7 @@ Matt Grainger - NINA
 
   - need to make this easier by using tools (spreadsheet/RShiny etc)
   - We can make use of SQLite (see RSQLite package) to structure
-    \*\*\*\[Does the OOP approach now invalidate the use of SQL
-    here?\*\*\*\]
+    ***\[Does the OOP approach now invalidate the use of SQL here?\]***
 
 <!-- end list -->
 
@@ -241,7 +225,7 @@ Matt Grainger - NINA
 
 -----
 
-  - ***AF, CM, DE to discuss this ***
+  - ***AF, CM, DE to discuss this***
 
 -----
 
@@ -249,9 +233,9 @@ Matt Grainger - NINA
 
 -----
 
-  - ***EN to invite Scott Chamberlain to LN seminar in October ***
+  - ***EN to invite Scott Chamberlain to LN seminar in October***
   - ***EN to explore options to collaborate or at least connect with
-    ROpenSci ***
+    ROpenSci***
 
 -----
 
@@ -261,7 +245,7 @@ Matt Grainger - NINA
 -----
 
   - ***MG to do a NINA seminar about LivingNorwayR and ask for a wider
-    base of users to test and refine the package functions. ***
+    base of users to test and refine the package functions.***
 
 -----
 
