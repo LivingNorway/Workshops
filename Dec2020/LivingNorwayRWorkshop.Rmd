@@ -1,0 +1,162 @@
+---
+title: "LivingNorwayR Workshop"
+author: "Matt"
+date: "10 12 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+```{r}
+# load libraries -----------------------------------------------
+library(tidyverse)
+library(rgdal)
+library(here)
+library(devtools)
+library(leaflet)
+library(htmlwidgets)
+library(htmltools)
+library(webshot)
+
+```
+
+
+
+# Download a data set from GBIF
+
+```{r}
+datasetID <- "4a00502d-6342-4294-aad1-9727e5c24041"
+dataset <- RJSONIO::fromJSON(paste0("http://api.gbif.org/v1/dataset/",datasetID,"/endpoint"))
+# The data set is available as a Darwin COre Archive zip file
+# from the "endpoint";
+endpoint_url <- dataset[[1]]$url
+dir.create("data")
+ifelse(file.exists("data/TOVE.zip"), NA,
+download.file(endpoint_url, destfile="data/TOVE.zip", mode="wb"))
+```
+
+```{r}
+unzip("data/TOVE.zip",exdir="data") 
+```
+
+```{r}
+#devtools::install_github("livingNorway/livingNorwayR")
+library(LivingNorwayR)
+```
+
+```{r LNImport}
+# Create a DwCArchive object from the downloaded Darwin Core archive file
+TOVEArchive <- initializeDwCArchive("data/TOVE.zip", "UTF-8")
+```
+
+```{r}
+TOVEArchive
+```
+
+```{r RetriveCoreTable}
+# Retrieve the core table from the archive object
+TOVEEventTable <- TOVEArchive$getCoreTable()
+# TOVEEvent table is an object of type GBIFEvent which is derived from DwCGeneric
+class(TOVEEventTable)
+# Export the contents of the event table to a data frame
+TOVEEventTableDF <- TOVEEventTable$exportAsDataFrame()
+# Lets look at the top few rows of the data frame extracted from the core data table
+head(TOVEEventTableDF)
+```
+```{r}
+TOVEOccTable <- TOVEArchive$getExtensionTables(1)[[1]]
+TOVEOccTable
+
+```
+
+
+```{r}
+library(tidyverse)
+TOVEOccTableDF <- TOVEOccTable$exportAsDataFrame()
+
+CinclusTOVE=TOVEOccTableDF %>% 
+  dplyr::filter(genus=="Cinclus")
+```
+
+```{r}
+CinclusCount=CinclusTOVE %>% 
+  select(organismQuantity, eventID, )
+
+```
+
+```{r}
+MergeOccEvent=TOVEEventTableDF %>% 
+  left_join(CinclusCount)
+
+```
+```{r}
+library(sp)
+MergeOccEvent=MergeOccEvent %>% 
+  select(decimalLatitude, decimalLongitude, organismQuantity,stateProvince, municipality)
+
+spatialCinclus=MergeOccEvent
+coordinates(spatialCinclus)<-~decimalLongitude+decimalLatitude
+plot(spatialCinclus)
+```
+
+
+```{r}
+shape <- readOGR(dsn = paste0(here(),"/SpatialData"), layer = "gadm36_NOR_1")
+
+shape@data$VARNAME_1
+
+```
+
+
+
+# map each region to a management region ----------------------------------
+
+shape@data$MAN_REGION<-c("R4", "R4", "R2","R2", "R8", "R5", "R1", 
+                         "R6", "R6", "R7", "R3", "R4", "R1", "R1",
+                         "R6", "R2", "R8", "R1", "R2")
+
+# plotting a leaflet map --------------------------------------------------
+
+# get the colour pallette -------------------------------------------------
+n = length(unique(shape@data$MAN_REGION))
+factorPal <- colorFactor(viridis::viridis(n), shape@data$MAN_REGION)
+
+
+# plot leaflet map --------------------------------------------------------
+
+leaflet() %>% 
+  addTiles() %>% 
+  addPolygons(data=shape, weight = 2, color = "black",  
+              fillColor = ~factorPal(shape@data$MAN_REGION),
+              fillOpacity = 1,
+              #label = ~shape@data$MAN_REGION)
+              label = ~shape@data$MAN_REGION,
+              labelOptions = labelOptions(noHide = F)) 
+
+require(tidyverse)
+require(viridis)
+require(ggthemes)
+require(plyr)
+
+map.df <- fortify(shape, region ="MAN_REGION")
+
+
+
+head(map.df)
+
+
+ggplot() +  
+  geom_polygon(data=map.df, aes(x=long, y=lat, group=group,fill=id), 
+            color="grey50", size=0.25) +
+  scale_fill_colorblind() +
+  coord_equal() +
+  theme_map() +
+  theme(legend.position="bottom") +
+  theme(legend.key.width=unit(2, "cm"))+
+  labs(fill = "Management Regions")
+
+
+
