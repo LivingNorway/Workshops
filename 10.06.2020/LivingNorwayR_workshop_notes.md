@@ -49,7 +49,7 @@ Matt Grainger - NINA
 
 ### (in no particular order - Actions highlighted in bold)
 
-1.  We should change from functional programming to a Object-orientated
+1.  We should explore the option of changing from functional programming to a Object-orientated
     approach (OOP)
 
 <!-- end list -->
@@ -233,7 +233,7 @@ Matt Grainger - NINA
 
 -----
 
-  - ***EN to invite Scott Chamberlain to LN seminar in October***
+  - ***EN to invite ROpenSci representatives to LN seminar in October***
   - ***EN to explore options to collaborate or at least connect with
     ROpenSci***
 

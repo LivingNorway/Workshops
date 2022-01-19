@@ -53,7 +53,7 @@ Matt Grainger - NINA
 ## Main outcomes from the meeting 
 ### (in no particular order - Actions highlighted in bold)
 
-1. We should change from functional programming to a Object-orientated approach (OOP)
+1. We should explore the option of changing from functional programming to a Object-orientated approach (OOP)
   - An "object" is a data structure. 
   - "Methods" can act upon the objects attributes.
   - "Classes" are used as an outline or architectural design for the object.
@@ -145,7 +145,7 @@ Matt Grainger - NINA
 15. Explore collaboration with ROpenSci
 
 ****
-* ***EN to invite Scott Chamberlain to LN seminar in October***
+* ***EN to invite ROpenSci representives to LN seminar in October***
 * ***EN to explore options to collaborate or at least connect with ROpenSci***
 
 ****
