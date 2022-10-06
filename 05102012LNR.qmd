@@ -1,0 +1,642 @@
+---
+title: "Introducing LivingNorwayR"
+author: "Matt"
+format: 
+  revealjs:
+    slide-number: c/t #< collapsed/total
+    logo: "/assets/LivingNorwayR1.png"
+    footer: "[LivingNorwayR](https://github.com/LivingNorway/LivingNorwayR)"
+
+editor: visual
+---
+
+## LivingNorwayR
+
+::: fragment
+*Motivation*:
+
+-   Provide a workflow for creating a Darwin Core Standard-compliant data archive ("a data package")
+
+-   Facilitate [FAIR](https://www.go-fair.org/fair-principles/) data/metadata sharing
+
+-   Make it easy to interact with the [Living Norway Portal](https://data.livingnorway.no/)
+:::
+
+# Getting data from the Portal
+
+[![Living Norway Data Portal](assets/PortalScreen.png)](https://data.livingnorway.no/dataset?key=c5fe763f-6851-4610-bdc3-67143540be67)
+
+## getLNPortalData
+
+```{r}
+#| echo: true
+library(LivingNorwayR)
+suppressMessages(library(tidyverse))
+beetle_data<-LivingNorwayR::getLNportalData("c5fe763f-6851-4610-bdc3-67143540be67")
+
+class(beetle_data)
+
+```
+
+An R6 Class of type DWCArchive is downloaded and imported in to your R session.
+
+## Using the data
+
+```{r}
+#| echo: true
+#| eval: false
+# DWCA consists of a core, extension(s), metadata, &
+# metafile (metadata about the DWCA)
+
+beetle_data$getCoreTable()
+beetle_data$getExtensionTables()
+beetle_data$getMetadata()
+```
+
+## getCoreTable
+
+```{r}
+#| echo: true
+coreTable<-beetle_data$getCoreTable()
+class(coreTable)
+
+```
+
+```{r}
+#| echo: true
+coreTable_df<-coreTable$exportAsDataFrame()
+names(coreTable_df)
+
+```
+
+## Visualisation example
+:::{.panel-tabset}
+## Code
+
+```{r}
+#| echo: true
+library(leaflet)
+map<-leaflet(data = coreTable_df) %>% 
+  addProviderTiles(providers$Esri.NatGeoWorldMap) %>%
+  addMarkers(~decimalLongitude, ~decimalLatitude, 
+             popup = ~as.character(municipality), 
+             label = ~as.character(municipality))
+
+```
+
+## Output
+```{r}
+map
+```
+
+:::
+
+## getExtensionTables
+
+```{r}
+#| echo: true
+
+occ<-beetle_data$getExtensionTables()
+occ<-occ[[1]]$exportAsDataFrame()
+names(occ)
+
+```
+
+## Visualisation examples
+:::{.panel-tabset}
+## Code
+
+```{r}
+#| echo: true
+Meligethes<-occ %>% 
+  select(scientificName) %>% 
+  filter(grepl("Meligethes",scientificName))
+p=Meligethes %>% 
+  group_by(scientificName) %>% 
+  tally() %>% 
+  ggplot(aes(n,reorder(scientificName,n)))+
+    geom_bar(stat="identity", fill="darkblue")+
+  labs(x="Records", y="Scientific name")+
+  theme_classic()
+library(rphylopic)
+img<- name_search(text = "Meligethes", options = "namebankID")[[1]] # find names
+img_id_all <- name_images(uuid = img$uid[1])  # list images
+
+img_pic<-image_data(img_id_all$supertaxa[[1]]$uid, size = 256)[[1]] # get a get individual image id
+
+
+```
+
+## Output
+```{r}
+p+add_phylopic(img_pic, alpha = 1, x = 10, y = 2, ysize = 10)
+```
+
+:::
+
+## getMetadata
+
+We can access the metadata object as well
+
+```{r}
+#| echo: true
+
+metadata=beetle_data$getMetadata()
+Title<-metadata$getTitle()
+Creator<-metadata$getCreatorInfo()
+
+paste0("The project, ","'", Title, "'", " was created by ", Creator[[1]]$individualName$givenName," ", Creator[[1]]$individualName$surName
+      )
+```
+
+# Converting your own data to Living Norway/DWCA format
+
+## A dataset
+
+An ecological dataset generally has "similar" elements. An **Event** (e.g. some sampling method), a set of **Occurrences** (e.g. a list of species/taxa observed) and some **Measurement or fact** (e.g. measurements of size, environmental covariates etc.). **Metadata** (data about the data) describes the dataset for other people.
+
+## Penguins
+
+Let's use a well-known and openly available dataset from R; The Palmer Penguins dataset.
+
+This dataset consists of observations and measurements of three different species of penguin in Antarctica.
+
+![The three species of penguin. Artwork by Allison Horst](assets/penguins.png)
+
+## Explore the data
+
+```{r}
+#| echo: true
+
+library(palmerpenguins)
+penguin_data<-penguins_raw
+penguin_data %>% 
+  head() %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling("striped", full_width = F) %>% 
+ kableExtra::scroll_box(width = "1200px", height = "250px")
+
+
+```
+
+## 
+
+Each row is a single individual penguin of one of the three species. There are measures of body size (bill and flipper lengths), sex (male or female), as well as information on egg laying date and stable isotope analysis from blood samples.
+
+![Bill length and depth measurements for each penguin. Artwork by Allison Horst](assets/culmen_depth.png)
+
+## Mapping to Darwin Core
+
+### Deciding on the Core
+
+The first task is to decide how our data will be structured.
+
+```{r}
+#| echo: true
+LivingNorwayR::getGBIFCoreClasses()[1:6]#Truncated
+
+```
+
+## Deciding on the extensions
+
+We have species data for each Event and we can include an Occurrence table as an extension.
+
+```{r}
+#| echo: true
+LivingNorwayR::getGBIFExtensionClasses()[1:6] # Truncated
+```
+
+## The Event Core
+
+We can get a list of the terms associated with an Event by using this code:
+
+```{r}
+#| echo: true
+getGBIFEventMembers()[1:6] # Truncated
+```
+
+## The Event Core
+
+GBIF recommends some required and suggested terms for Events [here](https://www.gbif.org/data-quality-requirements-sampling-events). These include **eventID**, **eventDate**, **samplingProtocol**, **samplingSizeValue** and **samplingSizeUnit** as required. Some of the strongly recommended elements that it makes sense for us to include are **parentEventID**, **countryCode**, **locationID** **decimalLatitude**, **decimalLongitude**, **geodeticDatum** and **coordinateUncertaintyInMeters**. We can also add **type**,**datasetName**, **ownerInstitutionCode**, **country**, **year**, **month** and **day**.
+
+## Parent Events
+
+Each event is a part of a higher level Event which is referred to as a Parent Event. The Parent Event in our case is represented by the "studyName" column. This represents a unique expedition carried out at a separate time. We can include this information in the Event table.
+
+## 
+
+Each Parent Event needs a unique persistent identifier, **parentEventID**, which we can obtain from the uuid package.
+
+```{r}
+#| echo: true
+penguin_data<-penguin_data %>% janitor::clean_names()
+penguin_data<-penguin_data %>%
+  group_by(study_name) %>%
+  mutate(
+    parentEventID = uuid::UUIDgenerate(use.time = FALSE)
+  )
+```
+
+## 
+
+There are different date ranges for each parent event and these need to be added as an **eventDate**.
+
+```{r}
+#| echo: true
+# Event Date for parentIDs
+
+parent_penguinEvent=penguin_data %>%
+  group_by(parentEventID) %>%
+  summarise(min=min(date_egg), max=max(date_egg)) %>%
+  mutate(eventDate=paste0(min,"/", max)) %>% mutate(eventID=parentEventID)
+
+```
+
+## 
+
+We can also add some wider scale geographic information to the parent events. Such as **continent** and **islandGroup**.
+
+```{r}
+#| echo: true
+# Event continent and islandGroup for parentIDs
+parent_penguinEvent=parent_penguinEvent %>%
+  mutate(continent="Antarctica") %>%
+  mutate(islandGroup="Palmer Archipelago") %>%
+  select(!c(min,max))
+
+```
+
+## Event
+
+Let's start with the **type**, **datasetName** and **ownerInstitutionCode**. The **type** is "Event", the **datasetName** is "Palmer-penguins" and the Palmer Station Antarctica LTER **ownerInstitutionCode** is "PAL".
+
+```{r}
+#| echo: true
+penguin_data=penguin_data %>% 
+  mutate(ownerInstitutionCode="PAL",
+         type="Event",
+         datasetName="Palmer-penguins")
+```
+
+## 
+
+Each Event also needs a unique identifier (**eventID**) and we can use the same approach as above. This time as each row is an Event we need to make sure the dataframe is ungrouped.
+
+```{r}
+#| echo: true
+penguin_data=penguin_data %>% 
+  ungroup() %>%
+  rowwise()%>%
+    mutate(
+    eventID = uuid::UUIDgenerate(use.time = FALSE)
+  )
+```
+
+## 
+
+Again we can include an **eventDate** for each event.
+
+```{r}
+#| echo: true
+penguin_data=penguin_data %>% 
+    mutate(
+    eventDate = date_egg) %>% 
+  mutate(day=lubridate::day(date_egg),
+         month=lubridate::month(date_egg),
+         year=lubridate::year(date_egg))
+
+```
+
+## 
+
+As each event is a sample in the penguins dataset where they measured a individual penguin we can set the **sampleSizeValue** as 1. The **sampleSizeUnit** can be "Adult penguin".
+
+```{r}
+#| echo: true
+penguin_data=penguin_data %>% 
+  mutate(sampleSizeValue=1) %>% 
+  mutate(sampleSizeUnit="Adult penguin")
+```
+
+## 
+
+We can get the **samplingProtocol** for each event by looking at the original data package (links can be found when you type ??palmerpenguins::penguins_raw in to the R Console). All three parent events have the same protocol.
+
+```{r}
+#| echo: true
+penguin_data=penguin_data %>% 
+  mutate(samplingProtocol= "Each season, study nests, where pairs of adults were present, were individually marked and chosen before the onset of egg-laying, and consistently monitored. When study nests were found at the one-egg stage, both adults were captured to obtain blood samples used for molecular sexing and stable isotope analyses, and measurements of structural size and body mass. At the time of capture, each adult penguin was quickly blood sampled (~1 ml) from the brachial vein using a sterile 3 ml syringe and heparinized infusion needle. Collected blood was stored in 1.5 ml micro-centrifuge tubes that were kept cool. In the field, a small amount of whole blood was smeared on clean filter paper stored in a 1.5 ml micro-centrifuge tube for molecular sexing. Measurements of culmen length and depth (using dial calipers ± 0.1 mm), right flipper (using a ruler ± 1 mm), and body mass (using 5 kg ± 25 g or 10 kg ± 50 g Pesola spring scales and a weigh bag) were obtained to quantify body size variation. After handling, individuals at study nests were further monitored to ensure the pair reached clutch completion, i.e., two eggs. Molecular analyses were conducted at Simon Fraser University following standard PCR protocols, and stable isotope analyses were conducted at the Stable Isotope Facility at the University of California, Davis using an elemental analyzer interfaced with an isotope ratio mass spectrometer")
+```
+
+## 
+
+**countryCode** is the two letter standard (using ISO 3166-1-alpha-2) code for a country. Antarctica, defined as the territories south of 60°S is given the code AQ.
+
+```{r}
+#| echo: true
+penguin_data =penguin_data %>% 
+  mutate(countryCode="AQ",
+         country="Antarctica")
+```
+
+## 
+
+The **locationID** can be a global unique identifier or an identifier specific to the data set. We have the region and island for the penguins data so we can use these to develop a data specific identifier.
+
+```{r}
+#| echo: true
+penguin_data=penguin_data %>% 
+  mutate(locationID=paste0(region, "_", island))
+```
+
+## 
+
+We are not provided with precise coordinates (**decimalLatitude**, **decimalLongitude**) for the samples in the penguin data. However, we can get the centroid for each island.
+
+```{r}
+#| echo: true
+penguin_data=penguin_data %>% 
+  mutate(decimalLatitude= 
+           case_when(
+             island=="Torgersen"~-64.77308,
+             island=="Biscoe"~-65.4333316,
+             island=="Dream"~-64.7333333,
+             TRUE~as.numeric(NA))
+  ) %>% 
+  mutate(decimalLongitude= 
+           case_when(
+             island=="Torgersen"~-64.07413,
+             island=="Biscoe"~-65.499998,
+             island=="Dream"~-64.2333333,
+             TRUE~as.numeric(NA))
+    
+  ) %>% 
+  mutate(geodeticDatum="WGS 84") #default geodeticDatum is WGS 84
+
+```
+
+## 
+
+As the coordinates are just the centroid for the island we need to include some measure of uncertainty (**coordinateUncertaintyInMeters**).
+
+```{r}
+#| echo: true
+penguin_data=penguin_data %>% 
+  mutate(coordinateUncertaintyInMeters= 
+           case_when(
+             island=="Torgersen"~400,
+             island=="Biscoe"~500,
+             island=="Dream"~400,
+             TRUE~as.numeric(NA))
+  )
+```
+
+## 
+
+Finally, we can create the Event core by selecting those elements that we have listed above.
+
+```{r}
+#| echo: true
+eventDF=penguin_data %>% 
+  select(c("datasetName",
+           "ownerInstitutionCode",
+           "parentEventID",
+           "eventID",
+           "samplingProtocol",
+           "sampleSizeValue",
+           "sampleSizeUnit",
+           "eventDate",
+           "year",
+           "month",
+           "day",
+           "locationID",
+           "country",
+           "countryCode",
+           "decimalLatitude",
+           "decimalLongitude",
+           "geodeticDatum",
+           "coordinateUncertaintyInMeters"))
+```
+
+## 
+
+Then we need to add in the Parent Events in to the Event dataframe.
+
+```{r}
+#| echo: true
+eventDF=eventDF %>% 
+  mutate(continent=NA) %>% 
+  mutate(islandGroup=NA) %>% 
+  mutate(eventDate=as.character(eventDate)) %>% bind_rows(parent_penguinEvent)
+```
+
+## 
+
+The final stage is to initialise an event object in the livingNorwayR
+
+```{r}
+#| echo: true
+GBIF_Event=initializeGBIFEvent(eventDF, idColumnInfo = "eventID", nameAutoMap = TRUE)
+```
+
+## The Occurrence extension
+
+We can find the supported terms for the Occurrence extension by using the following function.
+
+```{r}
+#| echo: true
+getGBIFOccurrenceMembers()[1:6]#Truncated
+```
+
+## 
+
+GBIF also has a list of required and [recommended terms](https://www.gbif.org/data-quality-requirements-occurrences) for Occurrence data. The required terms are **occurrenceID**, **basisOfRecord**,**scientificName**, **eventDate** (included in the event core). The recommended terms include **countryCode**, **taxonRank**,**kingdom**, **decimalLatitude**, **decimalLongitude**, **geodeticDatum**, **coordinateUncertaintyInMeters**,**individualCount**, **organismQuantity** and **organismQuantityType**, some of which are included in the event core.
+
+## 
+
+The **type** is an "Occurrence". The **collectionCode** can be "Palmer Station Antarctica LTER" and the **occurrenceID** should be a globally unique identifier.
+
+```{r}
+#| echo: true
+penguin_data=penguin_data %>% 
+  mutate(type="Occurrence",
+    collectionCode="Palmer Station Antarctica LTER") %>% 
+  mutate(occurrenceID=uuid::UUIDgenerate(use.time = FALSE))
+```
+
+## 
+
+The **basisOfRecord** records how the observation was made.
+
+```{r}
+#| echo: true
+penguin_data=penguin_data %>% 
+  mutate(basisOfRecord="HumanObservation")
+  
+```
+
+## 
+
+**organismQuantity** and **organismQuantityType**, are 1 individual penguin.
+
+```{r}
+#| echo: true
+penguin_data=penguin_data %>% 
+  mutate(organismQuantity= 1,
+         organismQuantityType= "individual")
+```
+
+## 
+
+For the **scientificName** and **vernacularName** we can use the species name from the original data set.
+
+```{r}
+#| echo: true
+penguin_data=penguin_data %>% 
+  mutate(scientificName=gsub("[\\(\\)]", "", regmatches(species, gregexpr("\\(.*?\\)",species))[[1]]),
+         vernacularName=gsub("\\s*\\([^\\)]+\\)","",species))
+```
+
+## 
+
+**taxonRank**, **kingdom**, **phylum**, **class**, **order**, **family** and **genus** all relate to the scientific name of the species. The **taxonRank** will be **species** because we have identified the penguins to the species level.
+
+```{r}
+#| echo: true
+penguin_data=penguin_data %>% 
+  mutate(kingdom="Animalia",
+         phylum="Chordata",
+         class="Aves",
+         order=	"Sphenisciformes",
+         family= "Spheniscidae",
+         genus="Pygoscelis",
+         ) %>% 
+  mutate(taxonRank="species")
+```
+
+## 
+
+Finally, as we did with the Event core, we can create the occurrence extension by selecting those elements that we have listed above and create a livingNorwayR object.
+
+```{r}
+#| echo: true
+occ_ext=penguin_data %>% 
+  select(type,collectionCode,basisOfRecord,occurrenceID, organismQuantity, organismQuantityType, 
+         eventID, eventDate, scientificName,kingdom, phylum, class, order, family, genus,vernacularName,taxonRank, sex)
+
+GBIF_Occ=initializeGBIFOccurrence(occ_ext, idColumnInfo = "occurrenceID",nameAutoMap = TRUE )
+```
+
+## The Measurement or Fact extension
+
+Our final extension is the "Measurement or Fact extension". We can look at the definition of this extension using the following code:
+
+```{r}
+#| echo: true
+getGBIFExtensionClasses()$GBIFMeasurementOrFact 
+```
+
+## 
+
+GBIF has a [list of properties](https://tools.gbif.org/dwca-validator/extension.do?id=dwc:MeasurementOrFact) for this extension. These include **measurementID** **measurementType**, **measurementValue**, **measurementAccuracy**, **measurementUnit**, **measurementDeterminedDate**, **measurementDeterminedBy**, **measurementMethod** and **measurementRemarks**, none of which are required.
+
+## 
+
+Let's start with the **measurementID**. We should also include the **occurrenceID** and **eventID** so that we know which individual and in which sampling event the measurements were taken.
+
+```{r}
+#| echo: true
+M_or_f=penguin_data %>% 
+  mutate(measurementID=uuid::UUIDgenerate(use.time = FALSE))
+
+```
+
+## 
+
+There are a number of measurements that we can include in this extension.
+
+```{r}
+#| echo: true
+M_or_f=M_or_f %>% 
+  select(measurementID,parentEventID,occurrenceID,eventID,
+         culmen_length_mm, culmen_depth_mm, delta_13_c_o_oo, delta_15_n_o_oo, body_mass_g, flipper_length_mm)
+```
+
+## 
+
+We need to pivot the data so that all the measurement types go in to a single column called **measurementType**. All the measurements go in to a column called **measurementValue**.
+
+```{r}
+#| echo: true
+
+M_or_f=M_or_f %>% 
+  pivot_longer(cols = c(culmen_length_mm, culmen_depth_mm, delta_13_c_o_oo, delta_15_n_o_oo, body_mass_g, flipper_length_mm), names_to="measurementType",
+               values_to = "measurementValue"
+  ) %>% 
+  drop_na(measurementValue)
+
+```
+
+## 
+
+Finally we create a measurement or fact object using livingNorwayR.
+
+```{r}
+#| echo: true
+GBIF_Measure=initializeGBIFMeasurementOrFact(M_or_f, idColumnInfo = "measurementID", nameAutoMap = TRUE)
+```
+
+# Metadata
+
+## EML Metadata
+
+In Darwin Core archive files the standard format for handling metadata is [EML](https://eml.ecoinformatics.org/), a flavour of XML specifically designed for the handling of ecological metadata.
+
+::: {.fragment .highlight-red}
+Writing EML in R is hard!!!!!! There are a [few options available](https://livingnorway.github.io/LivingNorwayR/articles/EML_R_packages_overview.html).
+:::
+
+## Metadata in LivingNorwayR
+
+-   The vision is to have a RMarkdown interface that allows one to render to a data report and EML at the same time
+
+-   The current version is a little buggy, but we have a development version that should be released by the end of this year
+
+## 
+
+![](images/metadata.png)
+
+## 
+
+![](images/metadata2.png)
+
+## 
+
+```{r}
+#| echo: true
+#| eval: false
+
+GBIF_metadata<-metadata$initialize("C:/Users/matthew.grainger/Documents/Projects_in_development/LN_Workshops/metadata_test.RMD")
+
+```
+
+## Create a DWC-a file
+
+```{r}
+#| echo: true
+#| eval: false
+
+coreDWC<-GBIF_Event
+extDWC<-c(GBIF_Occ, GBIF_Measure)
+metadata<- GBIF_metadata
+
+
+initializeDwCArchive(coreDwC, extDwC, metadata)
+
+```
+
+## Where to get help with the Package
+
+[GitHub](https://github.com/LivingNorway/LivingNorwayR) please submit an [issue](https://github.com/LivingNorway/LivingNorwayR/issues)
+
+If you want to [contribute](https://github.com/LivingNorway/LivingNorwayR/blob/master/CONTRIBUTING.md) please do so through a pull request (this can be code, use-cases, documentation etc.)
