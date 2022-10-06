@@ -2,7 +2,11 @@
 title: "Mapping data to Darwin Core using the LivingNorwayR package Part 1"
 author: "Matt"
 date: "17 12 2021"
-output: html_document
+output:
+  md_document:
+    variant: markdown_github
+    preserve_yaml: true
+always_allow_html: true
 bibliography: bib.bib
 ---
 
@@ -41,7 +45,7 @@ Let's use a well-known and openly available dataset from R; The Palmer Penguins 
 
 This dataset consists of observations and measurements of three different species of penguin in Antarctica [Artwork by Allison Horst]. 
 
-![The three species of penguin.Artwork by @allison_horst](assets/penguins.png)
+![The three species of penguin.Artwork by Allison Horst](assets/penguins.png)
 We can have a quick look at the dataset.
 
 ```{r,echo=TRUE, warning=FALSE, message=FALSE}
